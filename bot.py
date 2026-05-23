@@ -1,7 +1,21 @@
 import requests
-import json
 import time
 import base64
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+    def log_message(self, *args):
+        pass
+
+def run_server():
+    HTTPServer(("0.0.0.0", 10000), Handler).serve_forever()
+
+threading.Thread(target=run_server, daemon=True).start()
 
 BOT_TOKEN = "8389956727:AAHSdJ-XLiuTp-gZAR-9a1ttV86v5w8AqP0"
 GEMINI_KEY = "AIzaSyBA6yxZW0W0j8oFHZTFC3k5NpkD23ctPr8"
