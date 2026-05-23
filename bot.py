@@ -2,6 +2,7 @@ import requests
 import time
 import base64
 import threading
+import traceback
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 class Handler(BaseHTTPRequestHandler):
@@ -71,6 +72,7 @@ def ask_gemini_text(messages):
         "generationConfig": {"temperature": 0.3, "maxOutputTokens": 1500}
     })
     data = r.json()
+    print("Gemini text response:", data)
     return data["candidates"][0]["content"]["parts"][0]["text"]
 
 def ask_gemini_image(image_b64, mime_type="image/jpeg"):
@@ -83,6 +85,7 @@ def ask_gemini_image(image_b64, mime_type="image/jpeg"):
         "generationConfig": {"temperature": 0.3, "maxOutputTokens": 1500}
     })
     data = r.json()
+    print("Gemini image response:", data)
     return data["candidates"][0]["content"]["parts"][0]["text"]
 
 def get_updates(offset=None):
@@ -114,38 +117,50 @@ while True:
 
             if photo:
                 send(chat_id, "⏳ جاري قراءة الصورة وتصحيح المقال...")
-                file_id = photo[-1]["file_id"]
-                url = get_file_url(file_id)
-                image_b64 = download_image(url)
-                reply = ask_gemini_image(image_b64, "image/jpeg")
-                if chat_id not in user_states:
-                    user_states[chat_id] = []
-                user_states[chat_id].append({"role": "user", "content": "[صورة مقال]"})
-                user_states[chat_id].append({"role": "assistant", "content": reply})
-                send(chat_id, reply)
+                try:
+                    file_id = photo[-1]["file_id"]
+                    url = get_file_url(file_id)
+                    image_b64 = download_image(url)
+                    reply = ask_gemini_image(image_b64, "image/jpeg")
+                    if chat_id not in user_states:
+                        user_states[chat_id] = []
+                    user_states[chat_id].append({"role": "user", "content": "[صورة مقال]"})
+                    user_states[chat_id].append({"role": "assistant", "content": reply})
+                    send(chat_id, reply)
+                except Exception as e:
+                    traceback.print_exc()
+                    send(chat_id, f"❌ حدث خطأ: {str(e)}")
 
             elif document and document.get("mime_type", "").startswith("image/"):
                 send(chat_id, "⏳ جاري قراءة الصورة وتصحيح المقال...")
-                file_id = document["file_id"]
-                url = get_file_url(file_id)
-                image_b64 = download_image(url)
-                mime = document.get("mime_type", "image/jpeg")
-                reply = ask_gemini_image(image_b64, mime)
-                if chat_id not in user_states:
-                    user_states[chat_id] = []
-                user_states[chat_id].append({"role": "user", "content": "[صورة مقال]"})
-                user_states[chat_id].append({"role": "assistant", "content": reply})
-                send(chat_id, reply)
+                try:
+                    file_id = document["file_id"]
+                    url = get_file_url(file_id)
+                    image_b64 = download_image(url)
+                    mime = document.get("mime_type", "image/jpeg")
+                    reply = ask_gemini_image(image_b64, mime)
+                    if chat_id not in user_states:
+                        user_states[chat_id] = []
+                    user_states[chat_id].append({"role": "user", "content": "[صورة مقال]"})
+                    user_states[chat_id].append({"role": "assistant", "content": reply})
+                    send(chat_id, reply)
+                except Exception as e:
+                    traceback.print_exc()
+                    send(chat_id, f"❌ حدث خطأ: {str(e)}")
 
             elif text:
                 if chat_id not in user_states:
                     user_states[chat_id] = []
                 send(chat_id, "⏳ جاري التصحيح...")
-                user_states[chat_id].append({"role": "user", "content": text})
-                reply = ask_gemini_text(user_states[chat_id])
-                user_states[chat_id].append({"role": "assistant", "content": reply})
-                send(chat_id, reply)
+                try:
+                    user_states[chat_id].append({"role": "user", "content": text})
+                    reply = ask_gemini_text(user_states[chat_id])
+                    user_states[chat_id].append({"role": "assistant", "content": reply})
+                    send(chat_id, reply)
+                except Exception as e:
+                    traceback.print_exc()
+                    send(chat_id, f"❌ حدث خطأ: {str(e)}")
 
     except Exception as e:
-        print(f"Error: {e}")
+        traceback.print_exc()
         time.sleep(5)
